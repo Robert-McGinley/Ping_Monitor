@@ -1,6 +1,6 @@
 import re, socket, time
 import pyping
-#import derp
+
 # TODO: Write GUI interface in PyQT4 (laughter ensues) for this whole thing
 
 # TODO: Use json or pickle to save & load these collections
