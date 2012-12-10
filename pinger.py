@@ -1,6 +1,7 @@
 import re, socket, time
 import pyping
-#fuckfuckfuck
+import pickle
+
 # TODO: Write GUI interface in PyQT4 (laughter ensues) for this whole thing
 
 # TODO: Use json or pickle to save & load these collections
@@ -17,6 +18,74 @@ max_loops = 0
 
 # TODO: Get a list of DNS services that resolve on unresolvable addresses to "help" "navigation errors"
 treat_ip_as_unresolved = ['67.215.65.132']
+
+def save_object_to_pickle(object_to_save, dest_filename, clobber_existing=False):
+    if not isinstance(object_to_save,
+                      (str, dict, list, int, float, tuple, set, frozenset, pyping.Ping, pyping.Response)):
+        raise ValueError("The value for object_to_save is not a type that can be pickled.")
+    file_args = None
+    if clobber_existing:
+        # Overwrite any existing files outright
+        file_args = 'wb'
+    else:
+        # We're appending to the file, not overwriting it outright
+        # TODO: Do we need to pickle.load the existing file, add our object (object_to_save = pickle.load(picklefile.txt) + new_obj_to_pickle) or can we just append it to the file with open(file,'wb')? I think the former is most likely
+        file_args = 'ab'
+    try:
+        pickle.dump(object_to_save, open(dest_filename, file_args, None))
+    except
+    pickle.PickleError as ex:
+    error = ex,
+    print "An error occurred while attempting to save the provided object. Error: %s - %s" % (ex.message, ex.args)
+    return False
+
+except pickle.PicklingError as ex:
+print("An error occurred in the process of saving the provided object to file: %s. Error %s - %s" % (
+    dest_filename, ex.message, ex.args))
+return False
+except:
+return False
+else:
+return True
+
+def load_object_to_pickle(file_to_load):
+    if not isinstance(file_to_load, (str, file)):
+        raise ValueError("The value for file_to_load is not of type str or file.")
+
+    fd = None
+
+    if type(file_to_load) is str:
+    # We were provided with a string. Let's load it as a filename
+    #        if not os.path.exists(file_to_load):
+    #            raise IOError("Provided filename does not exist: %s" % file_to_load)
+    #        try:
+    #            new_object = pickle.load(open(file_to_load,'rb'))
+        fd = open(file_to_load, 'rb', 2048)
+    else:
+        # We got a file descriptor. Sweet.
+        if type(file_to_load) is file:
+            fd = file_to_load
+        else:
+            return False
+            raise IOError('Object provided is not file descriptor and is not a file path.')
+    try:
+        loaded = pickle.load(fd)
+
+    except pickle.PickleError as ex:
+        print "An error occurred while attempting to load the provided file. Error: %s - %s" % (ex.message, ex.args)
+        return False
+
+    except pickle.PicklingError as ex:
+        print("An error occurred in the process of loading the provided object(s) from file. Error %s - %s" % (
+        ex.message, ex.args))
+        return False
+
+    except:
+        return False
+
+    else:
+        return loaded
+
 
 def ping_host(dest, udp=False, timeout=1000, packet_size=55):
     is_hostname = None
