@@ -1,49 +1,18 @@
-import re, socket, time, sys
+import re, time
 import pyping
 import pickle
 from collections import defaultdict as ddict
+import netaddr
 
 # TODO: Write GUI interface in PyQT4 (laughter ensues) for this whole thing
 # GUI goes here... i guess
 
 # TODO: Use json or pickle to save & load these collections
 # TODO: Capture signal interrupts to ensure saving of collections
-
-def ping_host(dest, udp=False, timeout=1000, packet_size=55):
-    is_hostname = None
-    config = configuration()
-    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\$', dest):
-        try:
-            dest = socket.gethostbyname(dest)
-        except socket.error as err:
-        #            print('Unable to resolve provided hostname "%s" to IP address. %s: "%s"' % (dest, err.errno, err.strerror))
-            config.bad_hosts.append(dest)
-            return False
-        finally:
-            if config.is_valid_hostname(dest):
-                # Host is bad
-                config.add_to_bad_hosts(dest)
-                return False
-            #            if dest in treat_ip_as_unresolved:
-            #                bad_hosts.append(dest)
-            #                return False
-
-        # Set up "the ping"
-        the_ping = pyping.Ping(dest, timeout=timeout, udp=udp, packet_size=packet_size)
-        # do it!
-        ping_result = the_ping.do()
-
-        # Whats the verdict?
-        if ping_result:
-            return True
-        else:
-            return False
-
-
 class configuration(object):
     def __init__(self, default_host_status=None, **kwargs):
-        self.hostname_allowed = re.compile(r'(?!-)[A-Z\d-]{1,63}(?<!-)', re.IGNORECASE)
-        self.ip_address = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
+        self.regex_hostname_allowed_chars = re.compile(r'(?!-)[A-Z\d-]{1,63}(?<!-)', re.IGNORECASE)
+        self.regex_ipv4_addr = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
 
         def sanitize_max_loops(limit):
             if not isinstance(limit, int):
@@ -64,7 +33,7 @@ class configuration(object):
         self.hosts_status_dict = ddict(default_host_status)
         for name, hostname in self.hosts_dict.iteritems():
             self.hosts_status_dict.update(name=None)
-        #        print self.hosts_status_dict
+            #        print self.hosts_status_dict
         # Initialize list of bad hosts that were specified to us
         self.bad_hosts = []
 
@@ -82,25 +51,6 @@ class configuration(object):
         if len(self.bad_hosts) > 0:
             print(
                 'The following hosts are invalid: %l however they need to be removed manually.' % ', '.join(bad_hosts))
-
-    def is_valid_hostname(self, hostname):
-        if hostname is None:
-            return False
-        if len(hostname) > 255:
-            return False
-            # Remove a trailing dot, if it exists
-        if hostname[-1:] == ".":
-            hostname = hostname[:-1]
-
-        # Check if we have valid characters in our hostname
-        if not all(self.hostname_allowed.match(x) for x in hostname.split(".")):
-            return False
-
-        if re.match(self.ip_address, hostname):
-            try:
-                ghba = socket.gethostbyaddr(hostname)
-            except:
-                return False
 
     def add_to_bad_hosts(self, bad_host):
         if not isinstance(bad_host, str):
@@ -173,14 +123,82 @@ class configuration(object):
         else:
             return loaded
 
+config = configuration()
+
+def is_valid_hostname(hostname):
+    if hostname is None:
+        return False
+
+    # Remove a trailing dot, if it exists
+    if hostname[-1:] == ".":
+        hostname = hostname[:-1]
+
+    # Check if it's an IP address, not an actual hostname. Do ip address checks with netaddr
+    if re.match(config.regex_ipv4_addr, hostname):
+        if not netaddr.valid_ipv4(hostname):
+            return False
+        #        if not all(0 <= int(x) <= 255 for x in hostname.split('.')):
+        #            return False
+        #        try:
+        #            ghba = socket.gethostbyaddr(hostname)
+        #        except:
+        #            return False
+    else:
+        if len(hostname) > 255:
+            return False
+
+        # Check if we have valid characters in our hostname
+        if not all(config.regex_hostname_allowed_chars.match(x) for x in hostname.split(".")):
+            return False
+
+    if hostname in config.treat_ip_as_unresolved:
+        config.bad_hosts.append(hostname)
+        return False
+
+    return True
+
+
+def ping_host(dest, udp=False, timeout=1000, packet_size=55):
+#
+#    if not re.match(config.regex_ipv4_addr, dest):
+#        try:
+#            dest = socket.gethostbyname(dest)
+#        except socket.error as err:
+#        #            print('Unable to resolve provided hostname "%s" to IP address. %s: "%s"' % (dest, err.errno, err.strerror))
+#            config.bad_hosts.append(dest)
+#            return False
+#        finally:
+##            if config.is_valid_hostname(dest):
+##                # Host is bad
+##                config.add_to_bad_hosts(dest)
+##                return False
+
+    try:
+        # Set up "the ping"
+        the_ping = pyping.Ping(dest, timeout=timeout, udp=udp, packet_size=packet_size)
+        # do it!
+        ping_result = the_ping.do()
+    except:
+        return False
+        # Whats the verdict?
+    if ping_result:
+        return True
+    else:
+        return False
+
 
 def main():
-    # Initialize the configuration
-    config = configuration()
+    # Check through our hostnames and clean out anything we cant work with.
+    temp_hosts = config.hosts_dict.copy()
+    for (name, hostname) in temp_hosts.iteritems():
+        if not is_valid_hostname(hostname):
+            print("Removing bad host: " + hostname)
+            config.hosts_dict.pop(name)
+            config.bad_hosts.append(hostname)
+    del temp_hosts
 
-    # Reset our loop counter
+    # (Re)set our loop counter
     loop_counter = 0
-
     # Do the loop-de-loop
     while loop_counter <= config.max_loops:
         for (name, hostname) in config.hosts_dict.iteritems():
@@ -197,5 +215,5 @@ def main():
 
 if __name__ == '__main__':
     main()
-else:
-    sys.exit(False)
+#else:
+#    sys.exit(False)
