@@ -50,7 +50,8 @@ class configuration(object):
         # TODO: Remove bad hosts automagically instead of telling the user to do it
         if len(self.bad_hosts) > 0:
             print(
-                'The following hosts are invalid: %l however they need to be removed manually.' % ', '.join(bad_hosts))
+                'The following hosts are invalid: %l however they need to be removed manually.' % ', '.join(
+                    config.bad_hosts))
 
     def add_to_bad_hosts(self, bad_host):
         if not isinstance(bad_host, str):
@@ -137,12 +138,12 @@ def is_valid_hostname(hostname):
     if re.match(config.regex_ipv4_addr, hostname):
         if not netaddr.valid_ipv4(hostname):
             return False
-        #        if not all(0 <= int(x) <= 255 for x in hostname.split('.')):
-        #            return False
-        #        try:
-        #            ghba = socket.gethostbyaddr(hostname)
-        #        except:
-        #            return False
+            #        if not all(0 <= int(x) <= 255 for x in hostname.split('.')):
+            #            return False
+            #        try:
+            #            ghba = socket.gethostbyaddr(hostname)
+            #        except:
+            #            return False
     else:
         if len(hostname) > 255:
             return False
